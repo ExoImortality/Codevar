@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ExoCoder AI</title>
+  <style>
+    :root{--bg:#060816;--panel:#0d1226;--panel2:#121834;--line:#24305e;--text:#eef2ff;--muted:#9aa5d1;--accent:#6ee7ff;--good:#31d17c;--bad:#ff6b81}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(circle at top,#11183a,#060816 60%);color:var(--text);height:100vh;overflow:hidden}
+    header{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line);background:rgba(10,14,32,.88);backdrop-filter:blur(10px)}
+    .brand{font-size:20px;font-weight:800;letter-spacing:.4px}
+    .wrap{display:grid;grid-template-columns:1.1fr .9fr;height:calc(100vh - 62px)}
+    .panel{padding:14px;overflow:auto}
+    textarea{width:100%;height:100%;resize:none;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);padding:14px;font:14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;outline:none}
+    .right{display:grid;grid-template-rows:auto 1fr auto;gap:12px}
+    .card{background:rgba(13,18,38,.92);border:1px solid var(--line);border-radius:14px;padding:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    button{border:none;border-radius:10px;padding:10px 14px;background:linear-gradient(135deg,#2b4bff,#6ee7ff);color:#04111a;font-weight:800;cursor:pointer}
+    button.secondary{background:#18203d;color:var(--text);border:1px solid var(--line)}
+    button.good{background:linear-gradient(135deg,#10b981,#a7f3d0)}
+    input,select{background:#101733;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px}
+    iframe{width:100%;height:100%;border:1px solid var(--line);border-radius:14px;background:white}
+    pre{white-space:pre-wrap;word-wrap:break-word;margin:0;max-height:180px;overflow:auto;color:#d7defe}
+    .status{font-size:13px;color:var(--muted)}
+    .ok{color:var(--good)} .err{color:var(--bad)}
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand">ExoCoder AI</div>
+  <div class="row">
+    <button class="secondary" id="loadDemo">Load demo</button>
+    <button class="secondary" id="formatBtn">Beautify</button>
+    <button class="good" id="runBtn">Run code</button>
+  </div>
+</header>
+<div class="wrap">
+  <div class="panel"><textarea id="editor"></textarea></div>
+  <div class="panel right">
+    <div class="card">
+      <div class="row">
+        <input id="apiBase" value="http://localhost:8000" style="flex:1" />
+        <select id="model"><option>gpt-4.1-mini</option><option>gpt-4.1</option><option>o4-mini</option></select>
+        <button id="askBtn">Ask AI</button>
+      </div>
+      <div class="status" id="aiStatus">Ask the AI to generate code, fix bugs, or explain errors.</div>
+    </div>
+    <div class="card" style="padding:0;min-height:44vh"><iframe id="preview" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe></div>
+    <div class="card"><pre id="log"></pre></div>
+  </div>
+</div>
+<script>
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+const log = document.getElementById('log');
+const aiStatus = document.getElementById('aiStatus');
+const demo = `<!doctype html>
+<html>
+<body style="font-family:system-ui;padding:24px">
+<h1>Hello from ExoCoder</h1>
+<p>Type HTML, CSS, and JS, then press Run code.</p>
+<button onclick="document.body.style.background='#111827';this.innerText='Clicked'">Click me</button>
+</body>
+</html>`;
+editor.value = demo;
+
+function run(){ preview.srcdoc = editor.value; aiStatus.textContent = 'Preview updated.'; }
+function beautify(){ editor.value = editor.value.replace(/></g, '>\n<'); run(); }
+
+async function askAI(){
+  const base = document.getElementById('apiBase').value.replace(/\/$/,'');
+  const model = document.getElementById('model').value;
+  const prompt = prompt('Ask the coding AI what to build or fix:');
+  if(!prompt) return;
+  aiStatus.textContent = 'Thinking...';
+  try{
+    const res = await fetch(base + '/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model, messages:[{role:'user', content: prompt}]})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || 'Request failed');
+    const text = data.reply || '';
+    log.textContent = text;
+    if(text.includes('<!doctype') || text.includes('<html')) editor.value = text;
+    aiStatus.innerHTML = '<span class="ok">AI response received.</span>';
+    run();
+  }catch(e){ aiStatus.innerHTML = '<span class="err">' + e.message + '</span>'; }
+}
+
+document.getElementById('runBtn').onclick = run;
+document.getElementById('formatBtn').onclick = beautify;
+document.getElementById('askBtn').onclick = askAI;
+document.getElementById('loadDemo').onclick = () => { editor.value = demo; run(); };
+run();
+</script>
+</body>
+</html>
